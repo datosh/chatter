@@ -91,18 +91,25 @@ bool CServer::AcceptNewClient(unsigned int & id)
 
 	if (m_clientSocket != INVALID_SOCKET)
 	{
-		m_sessions.insert(std::pair<unsigned int, SOCKET>(id, m_clientSocket));
+		UserInfo *p_ui = new UserInfo();
+		p_ui->socket = m_clientSocket;
+		p_ui->uid = id;
+		p_ui->recv_message = new char[DEFAULT_BUFLEN];
+
+		m_sessions.insert(std::pair<unsigned int, UserInfo*>(id, p_ui));
 		return true;
 	}
 	return false;
 }
 
-int CServer::ReceiveData(unsigned int client_id, char * recvbuf)
+int CServer::ReceiveFromClient(unsigned int client_id)
 {
 	if (m_sessions.find(client_id) != m_sessions.end())
 	{
-		SOCKET currentSocket = m_sessions[client_id];
-		int iResult = recv(currentSocket, recvbuf, DEFAULT_BUFLEN, 0);
+		auto currentUserInfo = m_sessions[client_id];
+		SOCKET currentSocket = currentUserInfo->socket;
+		int iResult = recv(currentSocket, currentUserInfo->recv_message, DEFAULT_BUFLEN, 0);
+		currentUserInfo->bytes_recved = iResult;
 
 		// Returns 0 when the connections was gracefully closed
 		if (iResult == 0)
@@ -110,6 +117,7 @@ int CServer::ReceiveData(unsigned int client_id, char * recvbuf)
 			std::cout << "Connection " << client_id << " closed!" << std::endl;
 			closesocket(currentSocket);
 			m_sessions.erase(client_id);
+			delete currentUserInfo;
 		}
 		// Return SOCKET_ERROR if an error occured
 		else if (iResult == SOCKET_ERROR)
@@ -127,6 +135,7 @@ int CServer::ReceiveData(unsigned int client_id, char * recvbuf)
 				std::cout << "recv failed with error: " << error_code << std::endl;
 				m_sessions.erase(client_id);
 				closesocket(currentSocket);
+				delete currentUserInfo;
 				std::cout << "Deleted client" << client_id << " from the client list" << std::endl;
 				return -1;
 			}
@@ -137,16 +146,17 @@ int CServer::ReceiveData(unsigned int client_id, char * recvbuf)
 	return -1;
 }
 
-int CServer::ReceiveFromAll(std::map<unsigned int, char*> &recvmap)
+int CServer::ReceiveFromAll(void)
 {
 	int successfullRecvs = 0;
 
 	std::vector<unsigned int> toBeClosed;
 	for (auto it = m_sessions.begin(); it != m_sessions.end(); it++)
 	{
-		char * recvbuf = reinterpret_cast<char*>(malloc(sizeof(char) * DEFAULT_BUFLEN));
-		auto currentSocket = it->second;
-		int iResult = recv(currentSocket, recvbuf, DEFAULT_BUFLEN, 0);
+		auto currentUserInfo = it->second;
+		auto currentSocket = currentUserInfo->socket;
+		int iResult = recv(currentSocket, currentUserInfo->recv_message, DEFAULT_BUFLEN, 0);
+		currentUserInfo->bytes_recved = iResult;
 
 		// Returns 0 when the connection was greacefully closed
 		if (iResult == 0)
@@ -171,7 +181,6 @@ int CServer::ReceiveFromAll(std::map<unsigned int, char*> &recvmap)
 		// iResult contains the number of bytes recieved. 
 		else
 		{
-			recvmap.insert(std::pair<unsigned int, char*>(it->first, recvbuf));
 			successfullRecvs++;
 		}
 	}
@@ -179,9 +188,11 @@ int CServer::ReceiveFromAll(std::map<unsigned int, char*> &recvmap)
 	// Close the connections that need to be closed
 	for (auto it = toBeClosed.begin(); it != toBeClosed.end(); it++)
 	{
-		auto socketToClose = m_sessions[*it];
+		auto userToDelete = m_sessions[*it];
+		auto socketToClose = userToDelete->socket;
 		m_sessions.erase(*it);
 		closesocket(socketToClose);
+		delete userToDelete;
 		std::cout << "Deleted client" << *it << " from the client list" << std::endl;
 	}
 
@@ -194,64 +205,58 @@ void CServer::SendToClient(unsigned int client_id, char * message, int length)
 
 void CServer::SendToAll(char * message, int length)
 {
-	SOCKET currentSocket;
-	std::map<unsigned int, SOCKET>::iterator it;
-	int iSendResult;
-	
 	std::vector<unsigned int> toBeDeleted;
 
-	for (it = m_sessions.begin(); it != m_sessions.end(); it++)
+	for (auto it = m_sessions.begin(); it != m_sessions.end(); it++)
 	{
-		currentSocket = it->second;
-		iSendResult = send(currentSocket, message, length, 0);
+		auto currentUserInfo = it->second;
+		auto currentSocket = currentUserInfo->socket;
+		auto iResult = send(currentSocket, message, length, 0);
 
-		if (iSendResult == SOCKET_ERROR)
+		if (iResult == SOCKET_ERROR)
 		{
 			std::cout << "send to " << it->first << " failed with error: " << WSAGetLastError() << std::endl;
 			closesocket(currentSocket);
+			delete currentUserInfo;
 			toBeDeleted.push_back(it->first);
 		}
 	}
 
-	std::vector<unsigned int>::iterator itDel;
-	for (itDel = toBeDeleted.begin(); itDel != toBeDeleted.end(); itDel++)
+	for (auto it = toBeDeleted.begin(); it != toBeDeleted.end(); it++)
 	{
-		m_sessions.erase(*itDel);
-		std::cout << "Deleted client " << *itDel << " from client list" << std::endl;
+		m_sessions.erase(*it);
+		std::cout << "Deleted client " << *it << " from client list" << std::endl;
 	}
 }
 
 void CServer::SendToAllExcept(char * message, int length, unsigned int except)
 {
-	SOCKET currentSocket;
-	std::map<unsigned int, SOCKET>::iterator it;
-	int iSendResult;
-
 	std::vector<unsigned int> toBeDeleted;
 
-	for (it = m_sessions.begin(); it != m_sessions.end(); it++)
+	for (auto it = m_sessions.begin(); it != m_sessions.end(); it++)
 	{
 		if (it->first == except)
 		{
 			continue;
 		}
 
-		currentSocket = it->second;
-		iSendResult = send(currentSocket, message, length, 0);
+		auto currentUserInfo = it->second;
+		auto currentSocket = currentUserInfo->socket;
+		auto iResult = send(currentSocket, message, length, 0);
 
-		if (iSendResult == SOCKET_ERROR)
+		if (iResult == SOCKET_ERROR)
 		{
 			std::cout << "send to " << it->first << " failed with error: " << WSAGetLastError() << std::endl;
 			closesocket(currentSocket);
+			delete currentUserInfo;
 			toBeDeleted.push_back(it->first);
 		}
 	}
 
-	std::vector<unsigned int>::iterator itDel;
-	for (itDel = toBeDeleted.begin(); itDel != toBeDeleted.end(); itDel++)
+	for (auto it = toBeDeleted.begin(); it != toBeDeleted.end(); it++)
 	{
-		m_sessions.erase(*itDel);
-		std::cout << "Deleted client " << *itDel << " from client list" << std::endl;
+		m_sessions.erase(*it);
+		std::cout << "Deleted client " << *it << " from client list" << std::endl;
 	}
 }
 
@@ -260,7 +265,6 @@ void CServer::Update()
 	if (AcceptNewClient(m_clientId))
 	{
 		std::cout << "client " << m_clientId << " has been connected to the server" << std::endl;
-
 		m_clientId += 1;
 	}
 	
@@ -270,25 +274,29 @@ void CServer::Update()
 	//ReceiveData(0, buffer);
 
 
-	std::map<unsigned int, char*> recvmap;
-	int numRecvs = ReceiveFromAll(recvmap);
+	int numRecvs = ReceiveFromAll();
 	if (numRecvs > 0)
 	{
-		PrintRecvMap(recvmap);
+		PrintRecvMap(m_sessions);
 
-		for (auto it = recvmap.begin(); it != recvmap.end(); it++)
+		for (auto it = m_sessions.begin(); it != m_sessions.end(); it++)
 		{
-			SendToAllExcept(it->second, DEFAULT_BUFLEN, it->first);
+			auto currentUserInfo = it->second;
+			SendToAllExcept(currentUserInfo->recv_message, DEFAULT_BUFLEN, currentUserInfo->uid);
 		}
 	}
 }
 
-void PrintRecvMap(std::map<unsigned int, char*> recvmap)
+void PrintRecvMap(std::map<unsigned int, UserInfo*> sessions)
 {
-	std::cout << "_______PRINT_RECV_MAP_______" << recvmap.size() << std::endl;
-	for (auto it = recvmap.begin(); it != recvmap.end(); it++)
+	std::cout << "_______PRINT_RECV_MAP_______" << std::endl;
+	for (auto it = sessions.begin(); it != sessions.end(); it++)
 	{
-		std::cout << "Client(" << it->first << ") send: " << it->second << std::endl;
+		auto currentUserInfo = it->second;
+		if (currentUserInfo->bytes_recved > 0)
+		{
+			std::cout << "Client(" << currentUserInfo->uid << ") send: " << currentUserInfo->recv_message << std::endl;
+		}
 	}
 	std::cout << std::endl;
 }
