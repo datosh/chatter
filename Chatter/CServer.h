@@ -24,6 +24,5 @@ private:
 	SOCKET m_listenSocket;
 	SOCKET m_clientSocket;
 	std::map<unsigned int, SOCKET> m_sessions;
-	
 };
 
