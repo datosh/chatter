@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.22823.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Chatter", "Chatter\Chatter.vcxproj", "{00BEB47A-9095-4FA2-A42A-721669AB2C79}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ChatterClient", "ChatterClient\ChatterClient.vcxproj", "{A4F6D5C2-4056-441B-B3ED-9E54F0B158EC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{00BEB47A-9095-4FA2-A42A-721669AB2C79}.Debug|x86.ActiveCfg = Debug|Win32
+		{00BEB47A-9095-4FA2-A42A-721669AB2C79}.Debug|x86.Build.0 = Debug|Win32
+		{00BEB47A-9095-4FA2-A42A-721669AB2C79}.Release|x86.ActiveCfg = Release|Win32
+		{00BEB47A-9095-4FA2-A42A-721669AB2C79}.Release|x86.Build.0 = Release|Win32
+		{A4F6D5C2-4056-441B-B3ED-9E54F0B158EC}.Debug|x86.ActiveCfg = Debug|Win32
+		{A4F6D5C2-4056-441B-B3ED-9E54F0B158EC}.Debug|x86.Build.0 = Debug|Win32
+		{A4F6D5C2-4056-441B-B3ED-9E54F0B158EC}.Release|x86.ActiveCfg = Release|Win32
+		{A4F6D5C2-4056-441B-B3ED-9E54F0B158EC}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
